@@ -70,6 +70,13 @@ function iseg(a, b, p) {
 	return ccw(a, p, b) == 0;
 }
 
+function intriangle(a, b, c, p) {
+	const x = ccw(p, a, b);
+	const y = ccw(p, b, c);
+	const z = ccw(p, c, a);
+	return x * y > 0 && y * z > 0 && z * x > 0;
+}
+
 
 Module.onRuntimeInitialized = function() {
 	$('loading').style.display = 'none';
@@ -88,11 +95,11 @@ Module.onRuntimeInitialized = function() {
 
 	function draw(polygon, fill) {
 		selectPath(polygon);
-		ctx.stroke();
 		if (fill) {
 			ctx.fillStyle = fill;
 			ctx.fill();
 		}
+		ctx.stroke();
 	}
 
 	let mode = 'draw';
@@ -200,8 +207,11 @@ Module.onRuntimeInitialized = function() {
 		}
 		else {
 			for (let i = 0; i < triangles.length; i++) {
-				const lightness = 30 + 40 * ((0.618 * i + 0.5) % 1);
-				draw(triangles[i], `hsl(220, 100%, ${lightness}%)`);
+				let hue = 220;
+				let lightness = 30 + 40 * ((0.618 * i + 0.5) % 1);
+				if (intriangle(...triangles[i], mouse))
+					hue -= 180, lightness = 50;
+				draw(triangles[i], `hsl(${hue}, 100%, ${lightness}%)`);
 			}
 		}
 	});
