@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -36,6 +37,17 @@ bool intriangle(point a, point b, point c, point p) {
 }
 
 
+double area(const polygon& p) {
+	// Returns the signed area of p, positive if oriented counterclockwise
+	double area = 0.0;
+	for (int i = 0; i < p.size(); i++) {
+		area += p[i].first * p[(i + 1) % p.size()].second;
+		area -= p[i].second * p[(i + 1) % p.size()].first;
+	}
+	return area / 2;
+}
+
+
 int get_ear(const polygon& p) {
 	// Returns the index of an ear of the polygon
 	assert(p.size() > 3);
@@ -43,6 +55,8 @@ int get_ear(const polygon& p) {
 	for (int i = 0; i < n; i++) {
 		int j = (i + n - 1) % n;
 		int k = (i + 1) % n;
+		if (ccw(p[j], p[i], p[k]) < 0)
+			continue;
 		bool ear = true;
 		for (int d = 0; d < n; d++) {
 			if (d != i && d != j && d != k && intriangle(p[j], p[i], p[k], p[d])) {
@@ -79,6 +93,9 @@ vector<polygon> triangulate(vector<polygon> polygons) {
 	// vector<polygon> ret;
 	// ret.push_back({{2, 3}, {3, 4}, {5, 6}});
 	// ret.push_back({{1, 1}, {2, 2}, {3, 3}});
+	if (area(polygons[0]) < 0) {
+		std::reverse(polygons[0].begin(), polygons[0].end());
+	}
 	return triangulate_one(polygons[0]);
 }
 
