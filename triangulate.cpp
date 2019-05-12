@@ -6,10 +6,12 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <set>
 #include <string>
 
 using std::pair;
 using std::vector;
+using std::set;
 
 typedef pair<double, double> point; // Represents a 2D point (x, y)
 typedef vector<point> polygon; // Polygon in cyclic order of points
@@ -34,11 +36,11 @@ bool isect(point a, point b, point c, point d) {
 
 
 bool intriangle(point a, point b, point c, point p) {
-	// Check if p is within triangle abc
+	// Check if p is strictly within triangle abc
 	double x = ccw(p, a, b);
 	double y = ccw(p, b, c);
 	double z = ccw(p, c, a);
-	return x * y >= 0 && y * z >= 0 && z * x >= 0;
+	return x * y > 0 && y * z > 0 && z * x > 0;
 }
 
 
@@ -53,39 +55,40 @@ double area(const polygon& p) {
 }
 
 
-int get_ear(const polygon& p) {
-	// Returns the index of an ear of the polygon
-	assert(p.size() > 3);
+vector<polygon> triangulate_one(polygon p) {
+	// Triangulate a single polygon without holes in O(n^2)
 	int n = p.size();
+	vector<int> pre(n), nxt(n); // polygon as circular DLL
+	set<int> candidates; // candidate ear vertices to check
 	for (int i = 0; i < n; i++) {
-		int j = (i + n - 1) % n;
-		int k = (i + 1) % n;
-		if (ccw(p[j], p[i], p[k]) < 0)
+		pre[i] = (i + n - 1) % n;
+		nxt[i] = (i + 1) % n;
+		if (ccw(p[pre[i]], p[i], p[nxt[i]]) > 0)
+			candidates.insert(i);
+	}
+
+	vector<polygon> result;
+	while (result.size() < n - 2 && candidates.size()) {
+		int k = *candidates.begin();
+		candidates.erase(k);
+		if (ccw(p[pre[k]], p[k], p[nxt[k]]) <= 0)
 			continue;
 		bool ear = true;
-		for (int d = 0; d < n; d++) {
-			if (d != i && d != j && d != k && intriangle(p[j], p[i], p[k], p[d])) {
+		for (int d = nxt[nxt[k]]; d != pre[k]; d = nxt[d]) {
+			if (intriangle(p[pre[k]], p[k], p[nxt[k]], p[d])) {
 				ear = false;
 				break;
 			}
 		}
-		if (ear)
-			return i;
+		if (ear) {
+			result.push_back({ p[pre[k]], p[k], p[nxt[k]] });
+			nxt[pre[k]] = nxt[k];
+			pre[nxt[k]] = pre[k];
+			candidates.insert(pre[k]);
+			candidates.insert(nxt[k]);
+		}
 	}
-	return -1;
-}
 
-
-vector<polygon> triangulate_one(polygon p) {
-	// Triangulate a single polygon without holes
-	vector<polygon> result;
-	while (p.size() > 3) {
-		int n = p.size();
-		int i = get_ear(p);
-		result.push_back({ p[(i + n - 1) % n], p[i], p[(i + 1) % n] });
-		p.erase(p.begin() + i);
-	}
-	result.push_back(p);
 	return result;
 }
 
