@@ -6,12 +6,12 @@ const triangulate = (function() {
 	function makeF64Buf(array) {
 		// Allocates and returns a copy of a javascript array or typed array
 		// as a C array of doubles
-	    const offset = Module._malloc(array.length * 8);
+		const offset = Module._malloc(array.length * 8);
 		Module.HEAPF64.set(array, offset / 8);
-	    return {
-	    	data: Module.HEAPF64.subarray(offset / 8, offset / 8 + array.length),
-	    	offset
-	    };
+		return {
+			data: Module.HEAPF64.subarray(offset / 8, offset / 8 + array.length),
+			offset
+		};
 	}
 
 	function encodePolygons(polygons) {
@@ -29,8 +29,8 @@ const triangulate = (function() {
 		// Wrapper around c_triangulate
 		const numPoints = polygons.flat().length;
 		const data = encodePolygons(polygons);
-		const buf = makeF64Buf(new Float64Array(6 * numPoints));
-		
+		const buf = makeF64Buf(new Float64Array(6 * 2 * numPoints));
+
 		const numTriangles = c_triangulate(polygons.length, data.offset, buf.offset);
 		const result = [];
 		for (let i = 0; i < numTriangles; i++) {
