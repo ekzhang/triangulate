@@ -128,7 +128,8 @@ Module.onRuntimeInitialized = function() {
 				if (!currentPolygon)
 					currentPolygon = [mouse];
 				else {
-					if (currentPolygon.length >= 2 && iseg(...currentPolygon.slice(-2), mouse))
+					if (mouse[0] === currentPolygon[0][0] && mouse[1] === currentPolygon[0][1]
+						|| currentPolygon.length >= 2 && iseg(...currentPolygon.slice(-2), mouse))
 						ok = false;
 					const last = currentPolygon[currentPolygon.length - 1];
 					for (let i = 0; i < currentPolygon.length - 2; i++) {
