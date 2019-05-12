@@ -8,9 +8,13 @@
   </head>
   <body>
     <div id="loading" class="spinner-border" role="status"></div>
-    <main class="container" style="display: none">
-      <h1 class="text-center">Triangulation Experiment</h1>
+    <main id="main" class="container" style="display: none">
+      <h1 class="text-center p-3">Triangulation Experiment</h1>
       <canvas id="canvas" class="d-block m-auto border" width="800" height="600"></canvas>
+      <menu class="list-unstyled d-flex justify-content-center">
+        <li class="p-2"><button id="triangulate-btn" class="btn btn-primary">Triangulate</button></li>
+        <li class="p-2"><button id="reset-btn" class="btn btn-secondary">Reset</button></li>
+      </menu>
       <script src="triangulate.js"></script>
       <script src="index.js"></script>
     </main>

@@ -1,72 +1,208 @@
-const c_triangulate = Module.cwrap('triangulate', 'number', ['number', 'number', 'number']);
+const $ = document.getElementById.bind(document);
 
-function makeF64Buf(array) {
-	// Allocates and returns a copy of a javascript array or typed array
-	// as a C array of doubles
-    const offset = Module._malloc(array.length * 8);
-	Module.HEAPF64.set(array, offset / 8);
-    return {
-    	data: Module.HEAPF64.subarray(offset / 8, offset / 8 + array.length),
-    	offset
-    };
-}
+const triangulate = (function() {
+	const c_triangulate = Module.cwrap('triangulate', 'number', ['number', 'number', 'number']);
 
-function encodePolygons(polygons) {
-	// Given an array of polygons, flatten and convert it to a C array
-	const data = [];
-	for (const polygon of polygons) {
-		for (const [x, y] of polygon)
-			data.push(x, y);
-		data.push(NaN);
-	}
-	return makeF64Buf(data);
-}
-
-function triangulate(polygons) {
-	// Wrapper around c_triangulate
-	const numPoints = polygons.flat().length;
-	const data = encodePolygons(polygons);
-	const buf = makeF64Buf(new Float64Array(6 * numPoints));
-	
-	const numTriangles = c_triangulate(polygons.length, data.offset, buf.offset);
-	const result = [];
-	for (let i = 0; i < numTriangles; i++) {
-		result.push([
-			[buf.data[6 * i], buf.data[6 * i + 1]],
-			[buf.data[6 * i + 2], buf.data[6 * i + 3]],
-			[buf.data[6 * i + 4], buf.data[6 * i + 5]],
-		]);
+	function makeF64Buf(array) {
+		// Allocates and returns a copy of a javascript array or typed array
+		// as a C array of doubles
+	    const offset = Module._malloc(array.length * 8);
+		Module.HEAPF64.set(array, offset / 8);
+	    return {
+	    	data: Module.HEAPF64.subarray(offset / 8, offset / 8 + array.length),
+	    	offset
+	    };
 	}
 
-	Module._free(data.offset);
-	Module._free(buf.offset);
-	return result;
+	function encodePolygons(polygons) {
+		// Given an array of polygons, flatten and convert it to a C array
+		const data = [];
+		for (const polygon of polygons) {
+			for (const [x, y] of polygon)
+				data.push(x, y);
+			data.push(NaN);
+		}
+		return makeF64Buf(data);
+	}
+
+	function triangulate(polygons) {
+		// Wrapper around c_triangulate
+		const numPoints = polygons.flat().length;
+		const data = encodePolygons(polygons);
+		const buf = makeF64Buf(new Float64Array(6 * numPoints));
+		
+		const numTriangles = c_triangulate(polygons.length, data.offset, buf.offset);
+		const result = [];
+		for (let i = 0; i < numTriangles; i++) {
+			result.push([
+				[buf.data[6 * i], buf.data[6 * i + 1]],
+				[buf.data[6 * i + 2], buf.data[6 * i + 3]],
+				[buf.data[6 * i + 4], buf.data[6 * i + 5]],
+			]);
+		}
+
+		Module._free(data.offset);
+		Module._free(buf.offset);
+		return result;
+	}
+
+	return triangulate;
+})();
+
+
+function ccw([x1, y1], [x2, y2], [x3, y3]) {
+	return (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
 }
+
+function isect(a, b, c, d) {
+	if (Math.max(a[0], b[0]) < Math.min(c[0], d[0])
+		|| Math.max(c[0], d[0]) < Math.min(a[0], b[0])
+		|| Math.max(a[1], b[1]) < Math.min(c[1], d[1])
+		|| Math.max(c[1], d[1]) < Math.min(a[1], b[1]))
+		return false;
+	return ccw(a, c, b) * ccw(a, d, b) <= 0 && ccw(c, a, d) * ccw(c, b, d) <= 0;
+}
+
+function iseg(a, b, p) {
+	if (p[0] > Math.max(a[0], b[0]) || p[0] < Math.min(a[0], b[0])
+		|| p[1] > Math.max(a[1], b[1]) || p[1] < Math.min(a[1], b[1]))
+		return false;
+	return ccw(a, p, b) == 0;
+}
+
 
 Module.onRuntimeInitialized = function() {
-	document.getElementById('loading').style.display = 'none';
-	document.getElementsByTagName('main')[0].style.display = 'block';
-	const canvas = document.getElementById('canvas');
+	$('loading').style.display = 'none';
+	$('main').style.display = 'block';
+	const canvas = $('canvas');
 	const ctx = canvas.getContext('2d');
 
-	function selectPath(polygon) {
+	function selectPath(polygon, closePath=true) {
 		ctx.beginPath();
 		ctx.moveTo(...polygon[0]);
 		for (let i = 1; i < polygon.length; i++)
 			ctx.lineTo(...polygon[i]);
-		ctx.closePath();
+		if (closePath)
+			ctx.closePath();
 	}
 
-	function draw(polygon) {
+	function draw(polygon, fill) {
 		selectPath(polygon);
-		ctx.fillStyle = `hsl(220, 100%, ${25 + Math.random() * 50}%)`;
 		ctx.stroke();
-		ctx.fill();
+		if (fill) {
+			ctx.fillStyle = fill;
+			ctx.fill();
+		}
 	}
 
-	const pentagon = [[100, 100], [100, 200], [200, 300], [300, 200], [300, 100]];
-	const triangles = triangulate([pentagon]);
-	for (const triangle of triangles)
-		draw(triangle);
-	// console.log(JSON.stringify(triangulate([pentagon])));
+	let mode = 'draw';
+	let currentPolygon = null;
+	let completedPolygons = [];
+	let triangles = null;
+	let mouse = [0, 0];
+
+	canvas.addEventListener('mousemove', event => {
+		const rect = canvas.getBoundingClientRect();
+		mouse = [event.clientX - rect.left, event.clientY - rect.top];
+	});
+
+	canvas.addEventListener('click', event => {
+		event.preventDefault();
+		if (mode === 'draw') {
+			let ok = true;
+			for (const p of completedPolygons) {
+				for (let i = 0; i < p.length; i++) {
+					if (iseg(p[i], p[(i + 1) % p.length], mouse))
+						ok = false;
+				}
+			}
+
+			if (ok) {
+				if (!currentPolygon)
+					currentPolygon = [mouse];
+				else {
+					if (currentPolygon.length >= 2 && iseg(...currentPolygon.slice(-2), mouse))
+						ok = false;
+					const last = currentPolygon[currentPolygon.length - 1];
+					for (let i = 0; i < currentPolygon.length - 2; i++) {
+						if (isect(currentPolygon[i], currentPolygon[i + 1], mouse, last))
+							ok = false;
+					}
+					for (const p of completedPolygons) {
+						for (let i = 0; i < p.length; i++) {
+							if (isect(p[i], p[(i + 1) % p.length], mouse, last))
+								ok = false;
+						}
+					}
+					if (ok)
+						currentPolygon.push(mouse);
+				}
+			}
+		}
+	});
+
+	canvas.addEventListener('contextmenu', event => {
+		event.preventDefault();
+		if (mode === 'draw') {
+			if (currentPolygon && currentPolygon.length >= 3) {
+				let ok = true;
+				const p = currentPolygon[0], q = currentPolygon[currentPolygon.length - 1];
+				if (iseg(p, q, currentPolygon[1])
+					|| iseg(p, q, currentPolygon[currentPolygon.length - 2]))
+					ok = false;
+				for (let i = 1; i < currentPolygon.length - 2; i++) {
+					if (isect(currentPolygon[i], currentPolygon[i + 1], p, q))
+						ok = false;
+				}
+				for (const poly of completedPolygons) {
+					for (let i = 0; i < poly.length; i++) {
+						if (isect(poly[i], poly[(i + 1) % poly.length], p, q))
+							ok = false;
+					}
+				}
+
+				if (ok) {
+					completedPolygons.push(currentPolygon);
+					currentPolygon = null;
+				}
+			}
+		}
+	});
+
+	$('triangulate-btn').addEventListener('click', () => {
+		if (!triangles && completedPolygons.length) {
+			triangles = triangulate(completedPolygons);
+			mode = 'display';
+		}
+	});
+
+	$('reset-btn').addEventListener('click', () => {
+		completedPolygons = [];
+		currentPolygon = null;
+		triangles = null;
+		mode = 'draw';
+	});
+
+	requestAnimationFrame(function paint() {
+		requestAnimationFrame(paint);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		if (mode === 'draw') {
+			for (const polygon of completedPolygons)
+				draw(polygon);
+			if (currentPolygon) {
+				selectPath(currentPolygon, false);
+				ctx.stroke();
+				ctx.setLineDash([2, 3]);
+				ctx.lineTo(...mouse);
+				ctx.stroke();
+				ctx.setLineDash([0, 0]);
+			}
+		}
+		else {
+			for (let i = 0; i < triangles.length; i++) {
+				const lightness = 30 + 40 * ((0.618 * i + 0.5) % 1);
+				draw(triangles[i], `hsl(220, 100%, ${lightness}%)`);
+			}
+		}
+	});
 }
