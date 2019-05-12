@@ -24,7 +24,12 @@ double ccw(point a, point b, point c) {
 
 bool isect(point a, point b, point c, point d) {
 	// Check if segments a--b and c--d intersect
-	return ccw(a, c, b) * ccw(a, d, b) <= 0 && ccw(b, a, d) * ccw(b, c, d) <= 0;
+	if (std::max(a.first, b.first) < std::min(c.first, d.first)
+		|| std::max(c.first, d.first) < std::min(a.first, b.first)
+		|| std::max(a.second, b.second) < std::min(c.second, d.second)
+		|| std::max(c.second, d.second) < std::min(a.second, b.second))
+		return false;
+	return ccw(a, c, b) * ccw(a, d, b) <= 0 && ccw(c, a, d) * ccw(c, b, d) <= 0;
 }
 
 
