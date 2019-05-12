@@ -208,11 +208,11 @@ Module.onRuntimeInitialized = function() {
 		}
 		else {
 			for (let i = 0; i < triangles.length; i++) {
-				let hue = 220;
+				let hue = Date.now() / 100;
 				let lightness = 30 + 40 * ((0.618 * i + 0.5) % 1);
 				if (intriangle(...triangles[i], mouse))
 					hue -= 180, lightness = 50;
-				draw(triangles[i], `hsl(${hue}, 100%, ${lightness}%)`);
+				draw(triangles[i], `hsl(${hue % 360}, 100%, ${lightness}%)`);
 			}
 		}
 	});
