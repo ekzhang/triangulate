@@ -191,10 +191,25 @@ Module.onRuntimeInitialized = function() {
 		mode = 'draw';
 	});
 
+	const helpText = [
+		"Click to add points, right-click to complete the polygon.",
+		"Try adding holes and nested polygons as well!",
+		"When you're ready, press the \"Triangulate\" button below.",
+	];
+
 	requestAnimationFrame(function paint() {
 		requestAnimationFrame(paint);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		if (mode === 'draw') {
+			if (completedPolygons.length === 0 && !currentPolygon) {
+				// Show help text
+				ctx.font = '24px sans-serif';
+				ctx.textAlign = 'center';
+				ctx.fillStyle = 'black';
+				ctx.fillText(helpText[0], canvas.width / 2, canvas.height / 2 - 40);
+				ctx.fillText(helpText[1], canvas.width / 2, canvas.height / 2);
+				ctx.fillText(helpText[2], canvas.width / 2, canvas.height / 2 + 40);
+			}
 			for (const polygon of completedPolygons)
 				draw(polygon);
 			if (currentPolygon) {
