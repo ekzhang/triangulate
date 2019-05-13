@@ -14,3 +14,6 @@ clean:
 
 run: all
 	http-server .
+
+deploy: all
+	surge . triangulate.surge.sh
